@@ -1,0 +1,95 @@
+# Wazuh All-in-One Deployment
+# Academic/Lab setup - single node with manager, indexer, and dashboard
+
+version: '3.8'
+
+services:
+  # ── Wazuh Indexer (OpenSearch) ──────────────────────────────────
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.8.0
+    container_name: wazuh-indexer
+    hostname: wazuh-indexer
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "bootstrap.memory_lock=true"
+      - "discovery.type=single-node"
+      - "plugins.security.ssl.http.enabled=false"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+    networks:
+      - wazuh-net
+
+  # ── Wazuh Manager ──────────────────────────────────────────────
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.8.0
+    container_name: wazuh-manager
+    hostname: wazuh-manager
+    restart: unless-stopped
+    ports:
+      - "1514:1514"       # Agent communication
+      - "1515:1515"       # Agent enrollment
+      - "514:514/udp"     # Syslog
+      - "55000:55000"     # Wazuh API
+    environment:
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword123!}
+      - FILEBEAT_SSL_VERIFICATION_MODE=none
+      - API_USERNAME=${API_USERNAME:-wazuh-wui}
+      - API_PASSWORD=${API_PASSWORD:-MyS3cr3tP4ssw0rd}
+    volumes:
+      - wazuh-manager-config:/var/ossec/etc
+      - wazuh-manager-api:/var/ossec/api/configuration
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-queue:/var/ossec/queue
+      - wazuh-manager-rules:/var/ossec/etc/rules
+      - wazuh-manager-integrations:/var/ossec/integrations
+    depends_on:
+      - wazuh-indexer
+    networks:
+      - wazuh-net
+
+  # ── Wazuh Dashboard ────────────────────────────────────────────
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:4.8.0
+    container_name: wazuh-dashboard
+    hostname: wazuh-dashboard
+    restart: unless-stopped
+    ports:
+      - "443:5601"
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword123!}
+      - WAZUH_API_URL=https://wazuh-manager
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-kibanaserver}
+      - API_USERNAME=${API_USERNAME:-wazuh-wui}
+      - API_PASSWORD=${API_PASSWORD:-MyS3cr3tP4ssw0rd}
+    depends_on:
+      - wazuh-indexer
+      - wazuh-manager
+    networks:
+      - wazuh-net
+
+volumes:
+  wazuh-indexer-data:
+  wazuh-manager-config:
+  wazuh-manager-api:
+  wazuh-manager-logs:
+  wazuh-manager-queue:
+  wazuh-manager-rules:
+  wazuh-manager-integrations:
+
+networks:
+  wazuh-net:
+    driver: bridge

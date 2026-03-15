@@ -1,0 +1,306 @@
+<!--
+  Custom Wazuh Rules for Windows Intrusion Detection
+  
+  Rule ID Range: 100100 - 100199 (custom range to avoid conflicts)
+  Level Guide: 3=info, 5=low, 7=medium, 10=high, 12=critical, 15=emergency
+  
+  Copy to Wazuh manager: /var/ossec/etc/rules/custom-rules.xml
+  Restart: systemctl restart wazuh-manager
+-->
+<group name="custom_windows_ids,">
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- POWERSHELL ABUSE DETECTION                                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Suspicious PowerShell: Encoded command execution -->
+  <rule id="100100" level="10">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\-[eE][nN][cC][oO]?[dD]?[eE]?[dD]?[cC]?[oO]?[mM]?[mM]?[aA]?[nN]?[dD]?\s</field>
+    <description>Suspicious PowerShell: Encoded command detected (T1059.001)</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+    <group>powershell,attack,</group>
+  </rule>
+
+  <!-- PowerShell download cradle -->
+  <rule id="100101" level="12">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(Invoke-WebRequest|wget|curl|Net\.WebClient|DownloadString|DownloadFile|Start-BitsTransfer|Invoke-RestMethod)</field>
+    <description>PowerShell download cradle detected (T1105)</description>
+    <mitre>
+      <id>T1105</id>
+      <id>T1059.001</id>
+    </mitre>
+    <group>powershell,download,attack,</group>
+  </rule>
+
+  <!-- PowerShell execution policy bypass -->
+  <rule id="100102" level="7">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\-[eE]xecutionPolicy\s+(bypass|unrestricted)</field>
+    <description>PowerShell execution policy bypass detected (T1059.001)</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+    <group>powershell,evasion,</group>
+  </rule>
+
+  <!-- PowerShell AMSI bypass attempt -->
+  <rule id="100103" level="12">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(amsiInitFailed|AmsiUtils|amsi\.dll|SetValue.*AmsiEnable)</field>
+    <description>PowerShell AMSI bypass attempt detected (T1562.001)</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>powershell,evasion,attack,</group>
+  </rule>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- RDP BRUTE-FORCE DETECTION                                   -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Single RDP login failure -->
+  <rule id="100110" level="3">
+    <if_sid>60106</if_sid>
+    <field name="win.system.eventID">4625</field>
+    <field name="win.eventdata.logonType">10</field>
+    <description>RDP login failure (T1110.001)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>rdp,authentication_failures,</group>
+  </rule>
+
+  <!-- RDP brute-force: 5+ failures in 120 seconds -->
+  <rule id="100111" level="10" frequency="5" timeframe="120">
+    <if_matched_sid>100110</if_matched_sid>
+    <same_source_ip/>
+    <description>RDP brute-force attack detected: 5+ failures from same IP (T1110.001)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>rdp,brute_force,attack,</group>
+  </rule>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- CREDENTIAL DUMPING DETECTION                                -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- LSASS process access (Sysmon Event 10) -->
+  <rule id="100120" level="12">
+    <if_sid>61612</if_sid>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)lsass\.exe$</field>
+    <field name="win.eventdata.grantedAccess" type="pcre2">(0x1010|0x1038|0x1fffff|0x143a)</field>
+    <description>Credential dumping: Suspicious LSASS access detected (T1003.001)</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <group>credential_access,mimikatz,attack,</group>
+  </rule>
+
+  <!-- Mimikatz-like tool patterns in command line -->
+  <rule id="100121" level="15">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(sekurlsa|kerberos::list|lsadump|privilege::debug|token::elevate|mimikatz|procdump.*lsass)</field>
+    <description>Mimikatz or credential dumping tool detected (T1003)</description>
+    <mitre>
+      <id>T1003</id>
+      <id>T1003.001</id>
+    </mitre>
+    <group>credential_access,mimikatz,attack,</group>
+  </rule>
+
+  <!-- SAM database access -->
+  <rule id="100122" level="10">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(reg\s+save\s+hklm\\sam|reg\s+save\s+hklm\\system|reg\s+save\s+hklm\\security)</field>
+    <description>SAM/SYSTEM/SECURITY registry hive export detected (T1003.002)</description>
+    <mitre>
+      <id>T1003.002</id>
+    </mitre>
+    <group>credential_access,attack,</group>
+  </rule>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PERSISTENCE DETECTION                                       -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Registry Run key modification (Sysmon Events 12-14) -->
+  <rule id="100130" level="7">
+    <if_sid>61614,61615,61616</if_sid>
+    <field name="win.eventdata.targetObject" type="pcre2">(?i)CurrentVersion\\Run</field>
+    <description>Registry Run key modified - possible persistence (T1547.001)</description>
+    <mitre>
+      <id>T1547.001</id>
+    </mitre>
+    <group>persistence,registry,</group>
+  </rule>
+
+  <!-- Scheduled task creation via command line -->
+  <rule id="100131" level="7">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(schtasks\s+/create|Register-ScheduledTask)</field>
+    <description>Scheduled task created via command line (T1053.005)</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+    <group>persistence,scheduled_task,</group>
+  </rule>
+
+  <!-- New service installation (Event 7045) -->
+  <rule id="100132" level="7">
+    <if_sid>60009</if_sid>
+    <field name="win.system.eventID">7045</field>
+    <description>New Windows service installed - possible persistence (T1543.003)</description>
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+    <group>persistence,service,</group>
+  </rule>
+
+  <!-- WMI persistence -->
+  <rule id="100133" level="10">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(wmic.*process\s+call\s+create|Register-WmiEvent|Set-WmiInstance|__EventFilter|__EventConsumer)</field>
+    <description>WMI-based persistence or execution detected (T1546.003)</description>
+    <mitre>
+      <id>T1546.003</id>
+    </mitre>
+    <group>persistence,wmi,attack,</group>
+  </rule>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- LATERAL MOVEMENT & DISCOVERY                                -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Network enumeration commands -->
+  <rule id="100140" level="5">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(net\s+(user|localgroup|group|share|view|session)|nltest|dsquery|whoami\s+/all|systeminfo|ipconfig\s+/all|arp\s+-a|netstat\s+-an)</field>
+    <description>System/network discovery commands executed (T1016/T1033/T1069)</description>
+    <mitre>
+      <id>T1016</id>
+      <id>T1033</id>
+      <id>T1069</id>
+    </mitre>
+    <group>discovery,recon,</group>
+  </rule>
+
+  <!-- Rapid discovery: multiple recon commands in short time -->
+  <rule id="100141" level="10" frequency="3" timeframe="60">
+    <if_matched_sid>100140</if_matched_sid>
+    <same_source_ip/>
+    <description>Rapid system discovery: multiple recon commands in 60s (T1016)</description>
+    <mitre>
+      <id>T1016</id>
+    </mitre>
+    <group>discovery,recon,attack,</group>
+  </rule>
+
+  <!-- PsExec or remote execution tools -->
+  <rule id="100142" level="10">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(psexec|paexec|winrm|Enter-PSSession|Invoke-Command.*-ComputerName)</field>
+    <description>Remote execution tool detected (T1021.002/T1059.001)</description>
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+    <group>lateral_movement,execution,</group>
+  </rule>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- RANSOMWARE PRECURSOR DETECTION                              -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Volume shadow copy deletion -->
+  <rule id="100150" level="12">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(vssadmin\s+(delete|resize)\s+shadows|wmic\s+shadowcopy\s+delete|bcdedit.*recoveryenabled.*no)</field>
+    <description>Ransomware precursor: Shadow copy deletion or recovery disabled (T1490)</description>
+    <mitre>
+      <id>T1490</id>
+    </mitre>
+    <group>ransomware,impact,attack,</group>
+  </rule>
+
+  <!-- Suspicious file encryption patterns -->
+  <rule id="100151" level="10">
+    <if_sid>61617</if_sid>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)\.(encrypted|locked|crypt|enc|pay|ransom)$</field>
+    <description>Suspicious file extension: possible ransomware encryption (T1486)</description>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+    <group>ransomware,encryption,attack,</group>
+  </rule>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- DEFENSE EVASION                                             -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Windows event log clearing -->
+  <rule id="100160" level="12">
+    <if_sid>60009</if_sid>
+    <field name="win.system.eventID">1102</field>
+    <description>Windows Security event log cleared (T1070.001)</description>
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+    <group>defense_evasion,log_clearing,attack,</group>
+  </rule>
+
+  <!-- Disabling Windows Defender -->
+  <rule id="100161" level="12">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(Set-MpPreference\s+-DisableRealtimeMonitoring|sc\s+(stop|config)\s+WinDefend|DisableAntiSpyware)</field>
+    <description>Windows Defender tampering detected (T1562.001)</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>defense_evasion,antivirus,attack,</group>
+  </rule>
+
+  <!-- Firewall rule manipulation -->
+  <rule id="100162" level="7">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(netsh\s+advfirewall\s+set\s+.*state\s+off|netsh\s+firewall\s+set\s+opmode\s+disable|Set-NetFirewallProfile.*-Enabled\s+False)</field>
+    <description>Windows Firewall disabled via command line (T1562.004)</description>
+    <mitre>
+      <id>T1562.004</id>
+    </mitre>
+    <group>defense_evasion,firewall,</group>
+  </rule>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- SUSPICIOUS PROCESS CHAINS                                   -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- cmd.exe spawning PowerShell (common attack pattern) -->
+  <rule id="100170" level="5">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)cmd\.exe$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)powershell\.exe$</field>
+    <description>cmd.exe spawned PowerShell - suspicious process chain (T1059)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+    <group>process_chain,suspicious,</group>
+  </rule>
+
+  <!-- Office application spawning cmd/PowerShell (macro execution) -->
+  <rule id="100171" level="12">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)(WINWORD|EXCEL|POWERPNT|OUTLOOK)\.EXE$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)(cmd|powershell|wscript|cscript|mshta)\.exe$</field>
+    <description>Office application spawned suspicious child process - possible macro (T1204.002)</description>
+    <mitre>
+      <id>T1204.002</id>
+      <id>T1059</id>
+    </mitre>
+    <group>process_chain,macro,attack,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,68 @@
+# Hybrid Ensemble ML-Enhanced Intrusion Detection System for Windows Using Wazuh
+
+## Project Title
+Hybrid Ensemble Machine Learning-Enhanced Intrusion Detection System for Windows Environments
+
+## Overview
+This project develops a **practical, periodic intrusion detection system** optimized for Windows hosts (endpoints/servers). It uses **Wazuh** (open-source XDR/SIEM) as the core monitoring platform and extends it with a **custom hybrid ensemble machine learning layer** to improve detection of both known and unknown cyber attacks.
+
+Traditional rule-based tools struggle with evolving threats like living-off-the-land (LotL) attacks, fileless malware, ransomware precursors, PowerShell abuse, and zero-day exploits. This system addresses those gaps by combining Wazuh's strong endpoint visibility with an adaptive ML ensemble for higher accuracy, lower false positives, and better anomaly detection.
+
+### Key Objectives
+- Provide periodic (near real-time) monitoring of Windows systems for cyber intrusions.
+- Detect known attacks (signature-like) and unknown/behavioral anomalies.
+- Reduce false positives through ensemble stacking.
+- Generate actionable alerts, logs, and visualizations.
+- Deliver a deployable, extensible solution suitable for small networks or academic demos.
+
+### Motivation
+- Windows remains a primary target for attacks (RDP brute-force, credential dumping, persistence via registry/scheduled tasks).
+- Pure rule-based SIEMs produce noise; ML adds intelligence.
+- Need for cost-free, open-source tools in resource-constrained environments (e.g., college labs, small organizations).
+
+### Core Components
+- **Wazuh Platform**: Host-based detection, log analysis, FIM, vulnerability scanning.
+- **ML Extension**: Random Forest + XGBoost (known attacks) + Deep Neural Network (anomalies) → Stacking meta-classifier (Logistic Regression).
+- **Integration**: Python scripts process Wazuh alerts/logs → ML inference → enriched decisions fed back to Wazuh.
+
+### Features
+- Windows-specific telemetry via Sysmon + Wazuh agent (processes, network, Event Logs, registry, file changes).
+- Periodic analysis (every 15–60 seconds) to balance performance and timeliness.
+- Attack classification: Normal vs. Intrusive (DoS precursors, Probe, R2L-like, U2R-like).
+- Real-time alerts (email, Slack, custom), Kibana dashboards, active response (e.g., block IP).
+- Custom rules for Windows threats (e.g., suspicious PowerShell, high-entropy file writes).
+
+### Innovation
+- Augments Wazuh rules with a true **ensemble ML pipeline** tailored to Windows endpoint data.
+- Hybrid known/unknown detection via stacking → measurable improvement in precision/recall.
+- Low-overhead integration (no heavy real-time ML; periodic batch processing).
+
+### Scope & Assumptions
+- Single/multi Windows endpoints (tested on Windows 10/11).
+- All-in-one Wazuh deployment (manager + indexer + dashboard on Linux VM).
+- Simulated attacks for evaluation (Atomic Red Team, manual scripts).
+
+## Installation & Quick Start
+See `docs/SETUP.md` or `TECH_STACK.md` for full details.
+
+1. Deploy Wazuh all-in-one (Docker recommended).
+2. Install Wazuh agent + Sysmon on Windows target.
+3. Run ML scripts (Python) to process alerts.
+
+## Results & Evaluation (Planned/To-Do)
+- Metrics: Accuracy, Precision, Recall, F1, ROC-AUC, False Positive Rate.
+- Datasets: CIC-IDS2017/2018 subsets + synthetic Windows attacks.
+- Comparison: Baseline Wazuh vs. Enhanced ensemble.
+
+## Future Enhancements
+- Cloud scaling (AWS/EC2).
+- LLM-based threat hunting integration.
+- Auto-model retraining pipeline.
+
+## Acknowledgments
+Inspired by ensemble IDS research and Wazuh community contributions.
+
+## License
+MIT License (or as per your preference)
+
+Last updated: March 2026

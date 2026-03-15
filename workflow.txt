@@ -1,0 +1,53 @@
+# Project Workflows
+
+This document outlines the main operational and development workflows in the system.
+
+## 1. High-Level System Workflow (Runtime / Detection Loop)
+1. **Telemetry Collection**  
+   - Wazuh Windows agent + Sysmon continuously/log-periodically capture data (Event Logs, process/network events, file/registry changes).
+
+2. **Alert Generation (Wazuh Native)**  
+   - Wazuh analyzes logs against rules → generates alerts (JSON format) for suspicious events.
+
+3. **Periodic Data Pull & Feature Extraction** (Every 15–60 seconds)  
+   - Python script queries Wazuh API / tails alert logs.  
+   - Extracts features: duration, src/dst IP/port, packet/byte counts, behavioral metrics (process tree depth, command entropy, spikes), etc.
+
+4. **Parallel ML Inference**  
+   - Feed features to three models:  
+     - Random Forest → Known attack probability.  
+     - XGBoost → High-precision known classification.  
+     - DNN → Anomaly score (unknown threats).  
+
+5. **Stacking Ensemble Decision**  
+   - Meta-classifier (Logistic Regression) combines model outputs → final score.  
+   - Threshold applied: >0.7 = High risk → Intrusive + attack type (DoS, Probe, etc.).
+
+6. **Decision & Response**  
+   - Enrich Wazuh alert with ML score/type.  
+   - Trigger: Log entry, Kibana visualization, email/Slack alert, active response (e.g., Windows Firewall block via script).
+
+7. **Logging & Visualization**  
+   - Results stored in OpenSearch → Kibana dashboards show timelines, heatmaps, confusion matrices.
+
+## 2. Development / Setup Workflow
+1. Deploy Wazuh all-in-one (Docker Compose on Linux VM).
+2. Install Sysmon + Wazuh agent on Windows target → enroll agent.
+3. Configure modules: logcollector, syscheck (FIM), vuln detector, custom rules XML.
+4. Develop ML pipeline: Train models offline on datasets → save serialized.
+5. Build integration script: Pull → Extract → Infer → Enrich.
+6. Test: Simulate attacks → verify alerts + ML enhancement.
+7. Tune: Adjust thresholds, retrain on new data.
+
+## 3. Evaluation Workflow
+1. Baseline: Run pure Wazuh on simulated attacks → record metrics.
+2. Enhanced: Run with ML layer → compare (accuracy +15–25% expected).
+3. Metrics captured: Precision, Recall, F1, FP rate, ROC-AUC.
+4. Report: Jupyter notebook + exported visuals.
+
+## 4. Maintenance / Extension Workflow
+- Update Wazuh → re-test agent compatibility.
+- Add new rules/models → retrain ensemble periodically.
+- Scale: Add more agents → central manager handles.
+
+This modular design allows easy debugging and extension.

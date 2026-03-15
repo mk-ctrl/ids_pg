@@ -1,0 +1,45 @@
+# Technology Stack & Tools
+
+This project uses a modern, open-source stack focused on reliability, ease of deployment, and ML extensibility.
+
+## Core Platform
+- **Wazuh** (v4.8+ or latest stable): Open-source SIEM/XDR for threat detection, FIM, log analysis, active response.
+  - Components: Wazuh Manager, Indexer (OpenSearch), Dashboard (Kibana-based).
+  - Why: Native Windows support, rich ruleset, API for integration.
+
+## Operating Systems / Environments
+- **Manager/Dashboard**: Ubuntu 22.04 LTS / 24.04 (Docker Compose for all-in-one).
+- **Target Endpoints**: Windows 10 / 11 Pro (or Server 2022).
+- **Development**: VirtualBox / Hyper-V VMs, or physical lab machines.
+
+## Data Collection & Enrichment
+- **Sysmon** (Microsoft Sysinternals, latest): Advanced Windows event logging (process creation, network, file/registry).
+- **Wazuh Agent** (Windows native): Collects Sysmon + Event Logs + FIM.
+
+## Machine Learning Layer
+- **Programming Language**: Python 3.10+
+- **ML Libraries**:
+  - scikit-learn (Random Forest, Logistic Regression meta-classifier)
+  - XGBoost (gradient boosting for known attacks)
+  - TensorFlow / Keras (Deep Neural Network for anomalies)
+  - Pandas & NumPy (feature extraction & processing)
+  - Joblib / Pickle (model serialization)
+- **Feature Engineering**: Custom Python scripts to parse Wazuh JSON alerts (duration, bytes, ports, behavioral stats, entropy, etc.).
+
+## Integration & Automation
+- **Scheduling**: Python `schedule` library or Windows Task Scheduler / Linux cron.
+- **API/Connectors**: Wazuh API (for alert pulling), OpenSearch queries.
+- **Alerting/Output**: Wazuh built-in (email/Slack), custom webhooks.
+
+## Development & Testing Tools
+- **Version Control**: Git + GitHub
+- **Containerization**: Docker / Docker Compose (Wazuh deployment)
+- **Testing Attacks**: Atomic Red Team (MITRE ATT&CK simulations)
+- **Evaluation**: Jupyter Notebooks (prototyping), scikit-learn metrics
+- **IDE/Editors**: VS Code, PyCharm
+
+## Deployment Notes
+- Minimum hardware (dev): 8 GB RAM, 4-core CPU (manager VM) + Windows VM.
+- No paid/cloud services required — fully local/offline capable after setup.
+
+All components are **free/open-source** — ideal for academic/freelance projects.

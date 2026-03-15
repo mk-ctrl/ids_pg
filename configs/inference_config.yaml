@@ -1,0 +1,46 @@
+# ML-Enhanced IDS Inference Configuration
+# Copy and modify as needed for your environment.
+
+# Polling interval (seconds)
+interval: 30
+
+# Set to true for testing with synthetic alerts
+demo_mode: false
+
+# Wazuh Alert Puller
+alert_puller:
+  # "api" for REST API, "file" for log file tailing
+  mode: file
+  
+  # API settings (if mode=api)
+  api_url: https://localhost:55000
+  api_user: wazuh-wui
+  api_password: MyS3cr3tP4ssw0rd
+  
+  # File settings (if mode=file)
+  alerts_file: /var/ossec/logs/alerts/alerts.json
+  
+  # How far back to look for alerts (seconds)
+  lookback_seconds: 60
+
+# Feature Extraction
+scaler_path: models/scaler.joblib
+
+# Alert Enricher Output
+enricher:
+  # Log file for enriched alerts (JSONL format)
+  log_file: logs/enriched_alerts.jsonl
+  
+  # Print to console
+  console_output: true
+  
+  # Minimum confidence to trigger webhook/high-priority alert
+  min_level: 0.7
+  
+  # Optional webhook URL for forwarding alerts
+  # webhook_url: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# Ensemble Thresholds
+ensemble:
+  # Confidence threshold for intrusion classification
+  threshold: 0.7
